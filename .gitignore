@@ -1,0 +1,12 @@
+# ignore the python class files (.pyc)
+__pycache__/
+test/__pycache__/
+
+
+# ignore the log file
+logs/
+
+
+
+# ignore the reports directory
+reports/ 
