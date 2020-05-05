@@ -41,27 +41,6 @@ def getHTMPositionsFromFiles(files):
 		=> [Iterable] HTM positions from these files, with ISIN code added to each
 			position.
 	"""
-	
-	def detectDuplicatePositions(positions):
-		"""
-		[Iterable] positions => [List] positions
-
-		Detect whether there are duplicate positions, which means consolidation
-		is required.
-		"""
-		noDuplicatePosition = lambda acc, el: \
-			firstOf(lambda p: p['Description'] == el['Description'], acc) == None
-
-		return \
-		reduce(
-			lambda acc, el: \
-				acc + [el] if noDuplicatePosition(acc, el) else \
-				lognRaise('duplicate position: {0}, {1}'.format(el['Portfolio'], el['Description']))
-		  , positions
-		  , []
-		)
-	# End of detectDuplicatePositions()
-
 
 	def addISINCode(position):
 
@@ -88,7 +67,6 @@ def getHTMPositionsFromFiles(files):
 
 	htmPositionsFromFile = compose(
 		partial(map, addISINCode)
-	  , detectDuplicatePositions
 	  , partial(filter, lambda p: p['AssetType'] == 'HTMBond')
 	  , readFile
 	)
