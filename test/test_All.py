@@ -3,10 +3,10 @@
 
 import unittest2
 from xlrd import open_workbook
-from trustee_report.main import readFile
+from trustee_report.main import readFile, getHTMPositionsFromFiles
 from trustee_report.utility import getCurrentDirectory
-from toolz.functoolz import compose
-from functools import partial
+from toolz.functoolz import compose, flip
+from functools import partial, reduce
 from os.path import join
 
 
@@ -100,6 +100,39 @@ class TestAll(unittest2.TestCase):
                                  , positions))
         self.assertEqual(51, len(usdHTMBonds))
         self.verifyUSDHTMBondPosition(usdHTMBonds[0])
+
+
+
+    def testAllFiles(self):
+        files = \
+        [ '01 cash only.xls'
+        , '02 cash multiple bond.xls'
+        , '03 cash equity.xls'
+        , '04 cash usd bond.xls'
+        , '05 cash multiple bond.xls'
+        , '06 multiple cash multiple bond.xls'
+        , '07 multiple cash multiple bond.xls'
+        ]
+
+        countHTMPositions = partial(countPositions, lambda p: p['AssetType'] == 'HTMBond')
+        
+        countAllHTMPositions = lambda files: compose(
+            list
+          , partial(map, countHTMPositions)
+          , partial(map, readFile)
+          , partial(map, lambda f: join(getCurrentDirectory(), 'samples', f))
+        )(files)
+
+        self.assertEqual([0, 11, 0, 11, 51, 75, 74], countAllHTMPositions(files))
+
+
+        htmPositions = compose(
+            list
+          , getHTMPositionsFromFiles
+          , partial(map, lambda f: join(getCurrentDirectory(), 'samples', f))
+        )(files)
+
+        self.assertEqual(222, len(htmPositions))
 
 
 

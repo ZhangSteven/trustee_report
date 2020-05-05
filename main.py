@@ -36,6 +36,69 @@ mergeDictionary = lambda d1, d2: \
 
 
 
+def getHTMPositionsFromFiles(files):
+	"""
+	[Iterable] files (CL trustee excel files)
+		=> [Iterable] HTM positions from these files, with ISIN code added to each
+			position.
+	"""
+	
+	def detectDuplicatePositions(positions):
+		"""
+		[Iterable] positions => [List] positions
+
+		Detect whether there are duplicate positions, which means consolidation
+		is required.
+		"""
+		noDuplicatePosition = lambda acc, el: \
+			firstOf(lambda p: p['Description'] == el['Description'], acc) == None
+
+		return \
+		reduce(
+			lambda acc, el: \
+				acc + [el] if noDuplicatePosition(acc, el) else \
+				lognRaise('duplicate position: {0}, {1}'.format(el['Portfolio'], el['Description']))
+		  , positions
+		  , []
+		)
+	# End of detectDuplicatePositions()
+
+
+	def addISINCode(position):
+
+		# some bond identifiers are not ISIN, map them to ISIN
+		bondIsinMap = {
+			'DBANFB12014':'HK0000175916',	# Dragon Days Ltd 6% 03/21/22
+			'HSBCFN13014':'HK0000163607'	# New World Development 6% Sept 2023
+		}
+		
+		getIdentifier = lambda p: p['Description'].split()[0]
+		idToISIN = lambda id: bondIsinMap[id] if id in bondIsinMap else id
+
+		return \
+		compose(
+			lambda isin: mergeDictionary(
+			 	position
+			  , {'ISIN': isin}
+			)
+		  , idToISIN
+		  , getIdentifier
+		)(position)
+	# End of addISINCode()
+
+
+	htmPositionsFromFile = compose(
+		partial(map, addISINCode)
+	  , detectDuplicatePositions
+	  , partial(filter, lambda p: p['AssetType'] == 'HTMBond')
+	  , readFile
+	)
+
+
+	return reduce(chain, map(htmPositionsFromFile, files))
+
+
+
 def readFile(file):
 	"""
 	[String] file 
@@ -134,6 +197,8 @@ def getPositionsFromSection(lines):
 			and 'held for maturity' in sectionHeader else \
 			'AFSBond' if 'debt securities' in sectionHeader \
 			and 'available for sales' in sectionHeader else \
+			'TradingBond' if 'debt securities' in sectionHeader \
+			and 'held for trading' in sectionHeader else \
 			lognRaise('getAssetType(): unsupported asset type: {0}'.format(sectionHeader))
 	  
 	  , lambda sectionHeader: sectionHeader.lower()
@@ -204,7 +269,3 @@ fileToLines = compose(
 if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
-
-	inputFile = join(getCurrentDirectory(), 'samples', '01 cash only.xls')
-	for x in readFile(inputFile):
-		print(x)
