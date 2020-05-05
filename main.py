@@ -79,6 +79,7 @@ def readFile(file):
 		  							format(name)) if not name in nameMap else name
 		  , getFundName
 		)(lines)
+	# Enf of getPortfolioIdFromLines()
 
 
 	getPositionsFromLines = lambda lines: compose(
@@ -87,7 +88,8 @@ def readFile(file):
 	  , getSections
 	)(lines)
 
-	emptyLine = lambda line: len(line) == 0 or line[0] == ''
+
+	emptyLine = lambda line: len(line) == 0 or all(map(lambda x: x == '', line))
 
 
 	return \
@@ -137,6 +139,7 @@ def getPositionsFromSection(lines):
 	  , lambda sectionHeader: sectionHeader.lower()
 	)
 
+
 	"""
 		[Tuple] h (String, String) => [String] new header
 
@@ -146,23 +149,25 @@ def getPositionsFromSection(lines):
 		for HTM amortized cost ('AmortizedPrice') column.
 	"""
 	toNewHeader = lambda h: \
-		'Description' if h[1].startswith('Description') else \
-		'Currency' if h[1] == 'CCY' else \
-		'Cost' if h[1] == 'Cost' else \
-		'MarketValue' if h in [('Mkt', 'Value'), ('M.', 'Value')] else \
-		'MarketPrice' if h == ('Market', 'Price') else \
-		'AmortizedPrice' if h == ('Amortized', 'Price') else h
+		'Description' if h[2].startswith('Description') else \
+		'Currency' if (h[0], h[2]) == ('', 'CCY') else \
+		'Cost' if (h[0], h[2]) == ('', 'Cost') else \
+		'MarketValue' if h in [('Total', 'Mkt', 'Value'), ('Total', 'M.', 'Value')] else \
+		'MarketPrice' if (h[1], h[2]) == ('Market', 'Price') else \
+		'AmortizedCost' if (h[1], h[2]) == ('Amortized', 'Price') else \
+		'Quantity' if (h[0], h[2]) == ('', 'Share') or (h[1], h[2]) == ('Par', 'Amt') else h
 
 
-	getHeaders = lambda line1, line2: compose(
+	getHeaders = lambda line1, line2, line3: compose(
 		list
 	  , partial(map, toNewHeader)
 	  , zip
-	)(line1, line2)
+	)(line1, line2, line3)
+
 	
 	toPosition = lambda headers, line: compose(
 		dict
-	  , partial(filterfalse, lambda t: t[0] == ('', ''))
+	  , partial(filterfalse, lambda t: t[0] == ('', '', ''))
 	  , partial(zip, headers)
 	  , lambda _, line: \
 	  		lognContinue('toPosition(): {0}'.format(line[0]), line)
@@ -172,13 +177,13 @@ def getPositionsFromSection(lines):
 	return \
 	compose(
 		partial(map, partial(mergeDictionary, {'AssetType': getAssetType(lines[0][0])}))
+	  , partial(filterfalse, lambda p: p['Description'] == '')
 	  , partial( map
-	  		   , partial(toPosition, getHeaders(lines[1], lines[2])))
-	  , lambda lines: lines[3:]
+	  		   , partial(toPosition, getHeaders(lines[1], lines[2], lines[3])))
+	  , lambda lines: lines[4:]
 	  , lambda lines: lognContinue( 'getPositionsFromSection(): {0}'.format(lines[0][0])
 	  							  , lines)
 	)(lines)
-
 
 
 
@@ -200,5 +205,6 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	inputFile = join(getCurrentDirectory(), 'samples', '06 multiple cash multiple bond.xls')
-	print(list(readFile(inputFile))[-1])
+	inputFile = join(getCurrentDirectory(), 'samples', '01 cash only.xls')
+	for x in readFile(inputFile):
+		print(x)
