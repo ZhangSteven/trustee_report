@@ -1,5 +1,5 @@
 # trustee_report
-Convert China Life Trustee monthly statements (Excel) to Bloomberg AIM TSCF upload file (csv format).
+Convert China Life Trustee monthly statements (Excel) to Bloomberg AIM TSCF upload file (csv format). Check out main.py for more details on how to run the program.
 
 
 
