@@ -239,16 +239,55 @@ def getPositionsFromSection(lines):
 	)(headers, line)
 
 
+	countEmptyDictValue = lambda d: sum(1 if d[key] == '' else 0 for key in d)
+	unwantedPosition = lambda p: countEmptyDictValue(p) > 2
+
+
+	"""
+	In portfolio 12630, there are multiple entries for one position. We need to
+	group those together and create a consolidated position.
+	"""
+	toPositionGroups = partial(divideToGroup, lambda p: p['Description'] != '')
+
+
 	return \
 	compose(
 		partial(map, partial(mergeDictionary, {'AssetType': getAssetType(lines[0][0])}))
-	  , partial(filterfalse, lambda p: p['Description'] == '')
+	  , partial(map, consolidatePositionGroup)
+	  , toPositionGroups
+	  , partial(filterfalse, unwantedPosition)
 	  , partial( map
 	  		   , partial(toPosition, getHeaders(lines[1], lines[2], lines[3])))
 	  , lambda lines: lines[4:]
 	  , lambda lines: lognContinue( 'getPositionsFromSection(): {0}'.format(lines[0][0])
 	  							  , lines)
 	)(lines)
+
+
+
+def consolidatePositionGroup(group):
+	"""
+	[List] group (a group of positions of the same security)
+		=> [Dictionary] consolidated position
+
+	NOTE: the result is not a truly consolidated position because it only adds
+	up the quantity and create a weighted average of the amortized cost (if any).
+
+	This is good enough if we only need amortized cost of HTM bond positions and
+	can ignore other positions. Modification is needed if we need other positions
+	in the future.
+	"""
+	position = group[0].copy()
+
+	if 'Quantity' in position:
+		position['Quantity'] = sum(map(lambda p: p['Quantity'], group))
+		if 'AmortizedCost' in position:
+			position['AmortizedCost'] = \
+				sum(map( lambda p: p['Quantity']*p['AmortizedCost']
+					   , group)
+				   )/position['Quantity']
+
+	return position
 
 
 
@@ -269,3 +308,9 @@ fileToLines = compose(
 if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
+
+	inputFile = join(getCurrentDirectory(), 'samples', '01 cash only.xls')
+	cashPositions = filter( lambda p: p['AssetType'] == 'Cash'
+                          , readFile(inputFile))
+	for p in cashPositions:
+		print(p)

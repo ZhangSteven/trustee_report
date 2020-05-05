@@ -7,6 +7,7 @@ from trustee_report.main import readFile, getHTMPositionsFromFiles
 from trustee_report.utility import getCurrentDirectory
 from toolz.functoolz import compose, flip
 from functools import partial, reduce
+from utils.iter import firstOf
 from os.path import join
 
 
@@ -134,6 +135,18 @@ class TestAll(unittest2.TestCase):
 
         self.assertEqual(222, len(htmPositions))
 
+        # Test consolidated position
+        self.verifyUSDHTMBondPosition2(
+            firstOf( lambda p: p['Portfolio'] == '12630' and p['ISIN'] == 'US55608KAD72'
+                   , htmPositions)
+        )
+
+        # Test ISIN code swap
+        self.verifyUSDHTMBondPosition3(
+            firstOf( lambda p: p['Portfolio'] == '12734' and p['Description'] == 'DBANFB12014 Dragon Days Ltd 6.0%'
+                   , htmPositions)
+        )
+
 
 
     def verifyCashPosition(self, p):
@@ -179,3 +192,26 @@ class TestAll(unittest2.TestCase):
         self.assertEqual(494400000, p['Quantity'])
         self.assertAlmostEqual(559057632, p['Cost'])
         self.assertAlmostEqual(112.738861385518, p['AmortizedCost'])
+
+
+
+    def verifyUSDHTMBondPosition2(self, p):
+        """
+        This is a consolidated HTM position from portfolio 12630
+
+        US55608KAD72 MACQUARIE GROUP
+        """
+        self.assertEqual('12630', p['Portfolio'])
+        self.assertEqual('US55608KAD72 MACQUARIE GROUP', p['Description'])
+        self.assertEqual(346000, p['Quantity'])             # total quantity
+        self.assertAlmostEqual(219649.02, p['Cost'])        # cost of the first
+        self.assertAlmostEqual(99.8985, p['AmortizedCost'], 4)   # weighted average
+
+
+
+    def verifyUSDHTMBondPosition3(self, p):
+        self.assertEqual('12734', p['Portfolio'])
+        self.assertEqual('HK0000175916', p['ISIN']) # ISIN code different from identifier
+        self.assertEqual(916000000, p['Quantity'])
+        self.assertAlmostEqual(953306880, p['Cost'])
+        self.assertAlmostEqual(100.979014844978, p['AmortizedCost'])
