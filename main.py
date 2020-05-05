@@ -1,7 +1,7 @@
 # coding=utf-8
 #
-# Read China Life Trustee monthly reports (Excel format), convert to upload format
-# for HTM price uploading to Bloomberg AIM.
+# Read China Life Trustee monthly reports (Excel format), convert to csv format
+# for HTM price upload to Bloomberg AIM.
 #
 # For input and output file directories, check the config file.
 # 
@@ -9,7 +9,7 @@ from trustee_report.utility import getCurrentDirectory
 from itertools import chain, filterfalse
 from functools import partial, reduce
 from toolz.functoolz import compose
-from utils.iter import divideToGroup
+from utils.iter import divideToGroup, firstOf
 from utils.excel import worksheetToLines
 from xlrd import open_workbook
 from os.path import join
@@ -42,14 +42,52 @@ def readFile(file):
 		=> [Iterable] Positions, each position is a dictionary containing
 			the position's identifier, portfolio id and HTM price.
 	"""
-	# FIXME: Add implementation
-	getPortfolioIdFromLines = lambda lines: '88888'
+
+	def getPortfolioIdFromLines(lines):
+		"""
+		[Iterable] lines => [String] portfolio id
+
+		Search for the line that contains the fund name and convert the
+		name to portfolio id.
+		"""
+
+		# [Iterable] lines => [String] fund name (raise error if not found)
+		getFundName = compose(
+			lambda line: line[0][10:].strip()
+		  , lambda line: lognRaise('getFundName(): failed get fund name') \
+		  					if line == None else line
+		  , partial( firstOf
+		  		   , lambda line: isinstance(line[0], str) and \
+								line[0].lower().startswith('fund name:'))
+		)
+
+		nameMap = \
+		{ 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond) - Par': '12229'
+		, 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond)': '12734'
+		, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond)': '12366'
+		, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond) - Par': '12549'
+		, 'CLT-CLI HK BR (Class A-HK) Trust Fund - Par': '11490'
+		, 'CLI Macau BR (Fund)': '12298'
+		, 'CLI HK BR (Class G-HK) Trust Fund (Sub-Fund-Bond)': '12630'
+		, 'CLI HK BR (Class G-HK) Trust Fund': '12341'
+		}
+
+		return \
+		compose(
+			lambda name: nameMap[name]
+		  , lambda name: lognRaise('getPortfolioIdFromLines(): unsupported fund name {0}'.\
+		  							format(name)) if not name in nameMap else name
+		  , getFundName
+		)(lines)
+
 
 	getPositionsFromLines = lambda lines: compose(
 		partial(reduce, chain)
 	  , partial(map, getPositionsFromSection)
 	  , getSections
 	)(lines)
+
+	emptyLine = lambda line: len(line) == 0 or line[0] == ''
 
 
 	return \
@@ -58,29 +96,23 @@ def readFile(file):
 	  , lambda lines: ( getPortfolioIdFromLines(lines)
 					  , getPositionsFromLines(lines)
 					  )
+  	  , partial(filterfalse, emptyLine)
 	  , fileToLines
 	  , lambda file: lognContinue('readFile(): {0}'.format(file), file)
 	)(file)
 
 
 
-def getSections(lines):
-	"""
+"""
 	[Iterable] lines => [List] sections
 
 	Where is each section is a list of lines for a group 
-	"""
-	isSectionHeaderLine = lambda line: \
-		False if len(line) == 0 else re.match('[IVX]+\.\s+', line[0]) != None
+"""
+getSections = partial(
+	divideToGroup
+  , lambda line: re.match('[IVX]+\.\s+', line[0]) != None	# is it a section header line
+)
 
-	emptyLine = lambda line: len(line) == 0 or line[0] == ''
-
-	return \
-	compose(
-		partial(divideToGroup, isSectionHeaderLine)
-	  , partial(filterfalse, emptyLine)
-	)(lines)
-	
 
 
 def getPositionsFromSection(lines):
@@ -88,6 +120,9 @@ def getPositionsFromSection(lines):
 	[List] lines that belong to one section
 		=> [Iterable] positions from that section
 	"""
+
+	# [String] section header (first cell in the first row of the section)
+	# 	=> [String] asset type
 	getAssetType = compose(
 		lambda sectionHeader: \
 			'Cash' if 'cash' in sectionHeader else \
@@ -102,6 +137,14 @@ def getPositionsFromSection(lines):
 	  , lambda sectionHeader: sectionHeader.lower()
 	)
 
+	"""
+		[Tuple] h (String, String) => [String] new header
+
+		The original header is a String tuple, to make it easier for viewing
+		and testing, we convert some of them to a single word. Actually for
+		the purpose of HTM price uploading, we only need to convert the column
+		for HTM amortized cost ('AmortizedPrice') column.
+	"""
 	toNewHeader = lambda h: \
 		'Description' if h[1].startswith('Description') else \
 		'Currency' if h[1] == 'CCY' else \
@@ -120,7 +163,9 @@ def getPositionsFromSection(lines):
 	toPosition = lambda headers, line: compose(
 		dict
 	  , partial(filterfalse, lambda t: t[0] == ('', ''))
-	  , zip
+	  , partial(zip, headers)
+	  , lambda _, line: \
+	  		lognContinue('toPosition(): {0}'.format(line[0]), line)
 	)(headers, line)
 
 
@@ -155,7 +200,5 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	inputFile = join(getCurrentDirectory(), 'samples', '05 cash multiple bond.xls')
-	for p in readFile(inputFile):
-		print(p)
-		break
+	inputFile = join(getCurrentDirectory(), 'samples', '06 multiple cash multiple bond.xls')
+	print(list(readFile(inputFile))[-1])
