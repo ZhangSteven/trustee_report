@@ -3,7 +3,7 @@
 
 import unittest2
 from xlrd import open_workbook
-from trustee_report.main import readFile, getHTMPositionsFromFiles
+from trustee_report.report import readFile, getHTMPositionsFromFiles
 from trustee_report.utility import getCurrentDirectory
 from toolz.functoolz import compose, flip
 from functools import partial, reduce

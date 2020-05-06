@@ -3,7 +3,7 @@
 
 import unittest2
 from xlrd import open_workbook
-from trustee_report.main import readFile
+from trustee_report.report import readFile
 from trustee_report.utility import getCurrentDirectory
 from os.path import join
 
