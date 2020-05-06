@@ -4,12 +4,6 @@ Convert China Life Trustee monthly statements (Excel) to Bloomberg AIM TSCF uplo
 
 
 ++++++++
-To do
-++++++++
-Find out which identifiers are not ISIN codes.
-
-
-++++++++
 Caution
 ++++++++
 

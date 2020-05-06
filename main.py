@@ -17,7 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 
-def outputCsv(date, positions):
+def showList(L):
+	for x in L:
+		print(x)
+
+	return L
+
+
+
+def lognRaise(msg):
+	logger.error(msg)
+	raise ValueError
+
+
+
+"""
+	[List] positions => [String] output csv file name
+
+	Side effect: write a csv file in the local directory
+"""
+def outputCsv(positions):
 	headerRows = \
 		[ ['Upload Method', 'INCREMENTAL', '', '', '', '']
 		, [ 'Field Id', 'Security Id Type', 'Security Id', 'Account Code'
@@ -27,14 +46,15 @@ def outputCsv(date, positions):
 	toCsvRow = lambda p: \
 		['CD012', 4, p['ISIN'], p['Portfolio'], p['AmortizedCost'], p['AmortizedCost']]
 
-
-	return writeCsv( 'f3321tscf.htm.' + date + '.inc'
+	return writeCsv( 'f3321tscf.htm.' + positions[0]['Date'] + '.inc'
 				   , chain(headerRows, map(toCsvRow, positions))
 				   )
 
 
 
-getInputFiles = lambda inputDirectory: compose(
+# [String] inputDirectory => [List] excel files under that directory
+getInputFiles = lambda inputDirectory: \
+compose(
 	list
   , partial(map, lambda fn: join(inputDirectory, fn))
   , partial(filter, lambda fn: fn.endswith('.xls') or fn.endswith('.xlsx'))
@@ -43,23 +63,22 @@ getInputFiles = lambda inputDirectory: compose(
 
 
 
-doOutput = lambda inputDirectory, date: compose(
-	partial(outputCsv, date)
+"""
+	[String] input directory => [String] output csv file name
+
+	Side effect: write a csv file into the output directory
+"""
+doOutput = lambda inputDirectory: \
+compose(
+	outputCsv
+  , list
   , getHTMPositionsFromFiles
-  , shownContinue
+  , showList
   , lambda files: \
-  		lognRaise('no input files found under {0}'.format(inputDirectory)) \
+  		lognRaise('no input files found under \'{0}\''.format(inputDirectory)) \
   		if files == [] else files
-  , lambda inputDirectory, _: getInputFiles(inputDirectory)
-)(inputDirectory, date)
-
-
-
-def shownContinue(L):
-	for x in L:
-		print(x)
-
-	return L
+  , getInputFiles
+)(inputDirectory)
 
 
 
@@ -67,20 +86,13 @@ def shownContinue(L):
 if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
-	
-	import argparse
-	parser = argparse.ArgumentParser(description='Process CL Trustee monthly reports')
-	parser.add_argument( 'date', metavar='report_date', type=str
-					   , help='date of the CL trustee reports in yyyy-mm-dd format')
-	args = parser.parse_args()
 
 	"""
-	Put the CL Trustee monthly statements (Excel files) into the input directory
-	(check config file), then do:
+	Put the CL Trustee monthly statements (Excel files) into 'reports' directory,
+	then do:
 
-	$ python main.py <yyyy-mm-dd>
+		$ python main.py
 
-	Where the second argument is the report date. The output file is in the local
-	directory.
+	The output file will be written to the local directory.
 	"""
-	print('\nOutput File: {0}'.format(doOutput(getInputDirectory(), args.date)))
+	print('\nOutput File: {0}'.format(doOutput(getInputDirectory())))

@@ -8,6 +8,7 @@ from toolz.functoolz import compose
 from utils.iter import divideToGroup, firstOf
 from utils.excel import worksheetToLines
 from xlrd import open_workbook
+from datetime import datetime
 import re
 import logging
 logger = logging.getLogger(__name__)
@@ -78,64 +79,23 @@ def readFile(file):
 			the position's identifier, portfolio id and HTM price.
 	"""
 
-	def getPortfolioIdFromLines(lines):
-		"""
-		[Iterable] lines => [String] portfolio id
 
-		Search for the line that contains the fund name and convert the
-		name to portfolio id.
-		"""
-
-		# [Iterable] lines => [String] fund name (raise error if not found)
-		getFundName = compose(
-			lambda line: line[0][10:].strip()
-		  , lambda line: lognRaise('getFundName(): failed get fund name') \
-		  					if line == None else line
-		  , partial( firstOf
-		  		   , lambda line: isinstance(line[0], str) and \
-								line[0].lower().startswith('fund name:'))
-		)
-
-		nameMap = \
-		{ 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond) - Par': '12229'
-		, 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond)': '12734'
-		, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond)': '12366'
-		, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond) - Par': '12549'
-		, 'CLT-CLI HK BR (Class A-HK) Trust Fund - Par': '11490'
-		, 'CLI Macau BR (Fund)': '12298'
-		, 'CLI HK BR (Class G-HK) Trust Fund (Sub-Fund-Bond)': '12630'
-		, 'CLI HK BR (Class G-HK) Trust Fund': '12341'
-		}
-
-		return \
-		compose(
-			lambda name: nameMap[name]
-		  , lambda name: lognRaise('getPortfolioIdFromLines(): unsupported fund name {0}'.\
-		  							format(name)) if not name in nameMap else name
-		  , getFundName
-		)(lines)
-	# Enf of getPortfolioIdFromLines()
+	# [Iterable] lines => [List] sections
+	# a line is List of values, a section is a List of lines
+	getSections = partial(
+		divideToGroup
+	  , lambda line: re.match('[IVX]+\.\s+', line[0]) != None	# is it a section header line
+	)
 
 
-	def getDateFromLines(lines):
-		"""
-		[Iterable] lines => [String] date (yyyy-mm-dd)
-
-		Search for the line that contains the date and return it as a string.
-		"""
-		# FIXME: add implementation
-		return '2020-01-01'
-
-
-
-	getPositionsFromLines = lambda lines: compose(
+	getPositionsFromLines = compose(
 		partial(reduce, chain)
 	  , partial(map, getPositionsFromSection)
 	  , getSections
-	)(lines)
+	)
 
 
-	emptyLine = lambda line: len(line) == 0 or all(map(lambda x: x == '', line))
+	emptyLine = lambda line: len(line) == 0 or all(map(lambda c: c == '', line))
 
 
 	return \
@@ -154,15 +114,85 @@ def readFile(file):
 
 
 
-"""
-	[Iterable] lines => [List] sections
+def getPortfolioIdFromLines(lines):
+	"""
+	[Iterable] lines => [String] portfolio id
 
-	Where is each section is a list of lines for a group 
-"""
-getSections = partial(
-	divideToGroup
-  , lambda line: re.match('[IVX]+\.\s+', line[0]) != None	# is it a section header line
-)
+	Search for the line that contains the fund name and convert the
+	name to portfolio id.
+	"""
+
+	# [Iterable] lines => [Dictionary] line (or None if not found)
+	findFundNameLine = partial(
+		firstOf
+	  , lambda line: \
+	  		isinstance(line[0], str) and line[0].lower().startswith('fund name:')
+	)
+
+
+	# [Iterable] lines => [String] fund name (raise error if not found)
+	getFundNameFromLines = compose(
+		lambda line: line[0][10:].strip()
+	  , lambda line: lognRaise('getFundNameFromLines(): failed get fund name line') \
+	  					if line == None else line
+	  , findFundNameLine
+	)
+
+
+	nameMap = \
+	{ 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond) - Par': '12229'
+	, 'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond)': '12734'
+	, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond)': '12366'
+	, 'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond) - Par': '12549'
+	, 'CLT-CLI HK BR (Class A-HK) Trust Fund - Par': '11490'
+	, 'CLI Macau BR (Fund)': '12298'
+	, 'CLI HK BR (Class G-HK) Trust Fund (Sub-Fund-Bond)': '12630'
+	, 'CLI HK BR (Class G-HK) Trust Fund': '12341'
+	}
+
+	return \
+	compose(
+		lambda name: nameMap[name]
+	  , lambda name: lognRaise('getPortfolioIdFromLines(): unsupported fund name {0}'.\
+	  							format(name)) if not name in nameMap else name
+	  , getFundNameFromLines
+	)(lines)
+
+
+
+def getDateFromLines(lines):
+	"""
+	[Iterable] lines => [String] date (yyyy-mm-dd)
+
+	Search for the line that contains the date and return it as a string.
+	"""
+
+	# [Iterable] lines => [Dictionary] line (or None if not found)
+	findDateLine = partial(
+		firstOf
+	  , lambda line: \
+	  		isinstance(line[0], str) and line[0].lower().startswith('valuation period:')
+	)
+
+
+	"""
+	[String] date header => [String] date (yyyy-mm-dd)
+	The date header looks like: 
+		'Valuation Period: From 01/02/2020 to 29/02/2020'
+	"""
+	getDateFromString = compose(
+	  	lambda s: datetime.strftime(datetime.strptime(s, '%d/%m/%Y'), '%Y-%m-%d')
+	  , lambda s: s.split()[-1]
+	)
+
+
+	return \
+	compose(
+		getDateFromString
+	  , lambda line: lognRaise('getDateFromLines(): failed get date line') \
+	  					if line == None else line[0]
+	  , findDateLine
+	)(lines)
 
 
 

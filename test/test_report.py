@@ -152,6 +152,7 @@ class TestAll(unittest2.TestCase):
     def verifyCashPosition(self, p):
         self.assertEqual('USD', p['Currency'])
         self.assertEqual('12341', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertAlmostEqual(-9136.08, p['Cost'])
         self.assertAlmostEqual(-9136.08, p['MarketValue'])
 
@@ -160,6 +161,7 @@ class TestAll(unittest2.TestCase):
     def verifyEquityPosition(self, p):
         self.assertEqual('HKD', p['Currency'])
         self.assertEqual('12298', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertEqual('00823.HK The Link Real Estate', p['Description'])
         self.assertEqual(2160000, p['Quantity'])
         self.assertAlmostEqual(199951856.44, p['Cost'])
@@ -170,6 +172,7 @@ class TestAll(unittest2.TestCase):
 
     def verifyCNYHTMBondPosition(self, p):
         self.assertEqual('12229', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertEqual('HK0000171949 Beijing Enterprises', p['Description'])
         self.assertEqual(200000000, p['Quantity'])
         self.assertAlmostEqual(200000000, p['Cost'])
@@ -179,6 +182,7 @@ class TestAll(unittest2.TestCase):
 
     def verifyUSDAFSBondPosition(self, p):
         self.assertEqual('12229', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertEqual('XS2125922349 BANK OF CHINA 3.6%', p['Description'])
         self.assertEqual(40000000, p['Quantity'])
         self.assertAlmostEqual(39910000, p['Cost'])
@@ -202,6 +206,7 @@ class TestAll(unittest2.TestCase):
         US55608KAD72 MACQUARIE GROUP
         """
         self.assertEqual('12630', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertEqual('US55608KAD72 MACQUARIE GROUP', p['Description'])
         self.assertEqual(346000, p['Quantity'])             # total quantity
         self.assertAlmostEqual(219649.02, p['Cost'])        # cost of the first
@@ -211,6 +216,7 @@ class TestAll(unittest2.TestCase):
 
     def verifyUSDHTMBondPosition3(self, p):
         self.assertEqual('12734', p['Portfolio'])
+        self.assertEqual('2020-02-29', p['Date'])
         self.assertEqual('HK0000175916', p['ISIN']) # ISIN code different from identifier
         self.assertEqual(916000000, p['Quantity'])
         self.assertAlmostEqual(953306880, p['Cost'])
